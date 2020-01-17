@@ -25,8 +25,8 @@ Data:
 
 Read it in: 
 ```{r}
-ca_pb <- read_csv("ca_pollution_burden.csv")
-ca_dem <- read_csv("ca_census_demographics_2010.csv")
+ca_pb <- read_csv(here("data", "ca_pollution_burden.csv"))
+ca_dem <- read_csv(here("data", "ca_census_demographics_2010.csv"))
 ```
 
 ## B. Do some cleaning 
@@ -39,7 +39,7 @@ ca_dem <- read_csv("ca_census_demographics_2010.csv")
 ```{r}
 ca_pb_nopct <- ca_pb %>% 
   clean_names() %>% 
-  select(-contains("pctl")) %>% 
+  select(-contains("pctl")) %>% # Negative sign within select() excludes columns with "pctl" in the name
   select(-contains("perc")) %>% 
   select(-latitude, - longitude)
 ```
@@ -66,7 +66,7 @@ First, starting with ca_pb_nopct:
 First, just selecting those:
 ```{r}
 ca_pb_subset <- ca_pb_nopct %>% 
-  select(ozone:solid_waste, asthma:housing_burden)
+  select(ozone:solid_waste, asthma:housing_burden) # Selects a range of columns without having to type in each individual column name
 ```
 
 We'll use the `prcomp` function:
@@ -78,7 +78,7 @@ pb_pca <- prcomp(ca_pb_subset, scale = TRUE) # hmmm an error
 
 ```
 
-Look at the NA situation:
+Explore missingness - look at the NA situation:
 ```{r}
 summary(ca_pb_subset) # Max NAs in a variable: 242 (/8035)
 ```
@@ -98,13 +98,13 @@ The `VIM::matrixplot()` function creates a heatmap, where values are shown on a 
 ```{r}
 matrixplot(ca_pb_subset)
 
-# We can also sort by a variable of interest. Let's say we want to sort by poverty:
+# We can also sort by a variable of interest. Let's say we want to sort by poverty (organizes poverty from high to low):
 matrixplot(ca_pb_subset, sortby = "poverty")
 ```
 
 Let's say our conclusion is that there are missings, but not many (compared to the actual scope of the data). We'll only keep our complete cases (census tracts without any missings).
 
-Use `tidyr::drop_na()` with no variables specified to keep complete cases across all variables:
+Use `tidyr::drop_na()` with no variables specified to keep complete cases across all variables. Removes every row that contains at least one na:
 
 ```{r}
 ca_pb_nona <- ca_pb_subset %>% 
@@ -122,6 +122,9 @@ Cool. No NAs, checked out missingness, NOW let's try PCA again:
 ```{r}
 my_ca_pca <- prcomp(ca_pb_nona, scale = TRUE)
 
+my_ca_pca
+summary(my_ca_pca)
+
 # A nightmare! But what are we looking at? 
 plot(my_ca_pca)
 biplot(my_ca_pca)
@@ -133,30 +136,36 @@ my_biplot <- autoplot(my_ca_pca,
                       loadings.label.size = 3,
                       loadings.label.colour = "black",
                       loadings.label.repel = TRUE) +
-  theme_minimal()
+                      theme_minimal()
   
 
 my_biplot
 
+# Biplot captures only 34% of variance
 
 ```
 
-4. Join data by census tract (inner join)
+4. PCA for pollution burden + demographics: 
+
+Join data by census tract (inner join)
 
 ```{r}
 
 ca_df <- ca_dem_clean %>% 
   inner_join(ca_pb_nopct, by = c("census_tract_number" = "census_tract"))
 
+# inner_join() only keeps matching columns from the selected dataframes
 ```
 
 Check it out, then get complete cases:
 ```{r}
+
+# Now drop NAs by complete case deletion:
 ca_df_nona <- ca_df %>% 
   drop_na()
 ```
 
-5. Make a new subset for PCA, that includes % white and elderly, and some interesting pollution burden & health indicators:
+5. Make a new subset of can_nona for PCA, that includes % white and elderly, and some interesting pollution burden & health indicators:
 
 Like (you can choose a different set): 
 
